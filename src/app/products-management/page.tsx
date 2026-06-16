@@ -20,6 +20,7 @@ const ProductsManagementPage: React.FC = () => {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [searchName, setSearchName] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,6 +55,10 @@ const ProductsManagementPage: React.FC = () => {
       console.error(err);
     }
   };
+
+  const filteredProducts = products.filter(product =>
+  product.name.includes(searchName)
+);
 
   useEffect(() => {
     fetchProducts();
@@ -210,9 +215,16 @@ const ProductsManagementPage: React.FC = () => {
           </div>
         )}
       </nav>
-      <main className="p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-800">كل المنتجات</h2>
+      <main className="sm:p-8 p-2">
+        <div className="flex justify-between items-center mb-8 sm:flex sm:items-center sm:gap-2 gap-4 flex-wrap ">
+          <h2 className="text-3xl font-extrabold text-gray-800 ">كل المنتجات</h2>
+          <input
+            type="text"
+            placeholder="بحث عن منتج"
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            className="sm:w-1/2 w-full px-7 py-3 text-2xl text-gray-900  font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
+          />
           <button onClick={() => {
             setShowForm(!showForm);
             if (!showForm) {
@@ -225,11 +237,11 @@ const ProductsManagementPage: React.FC = () => {
         </div>
 
         {showForm && (
-          <div className="bg-white p-8 rounded-3xl shadow-2xl mb-8 max-w-3xl border-t-8 border-green-500">
+          <div className="sm:bg-white bg-white sm:p-4 p-2 rounded-3xl shadow-2xl mb-8 max-w-3xl border-t-8 border-green-500">
             <h3 className="text-2xl font-bold mb-6 text-gray-800">
               {editingProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xl font-extrabold text-gray-800 mb-3">📦 اسم المنتج</label>
                 <input
@@ -238,7 +250,7 @@ const ProductsManagementPage: React.FC = () => {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-7 py-6 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
+                  className="w-full px-7 py-3 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
                 />
               </div>
               <div>
@@ -251,7 +263,7 @@ const ProductsManagementPage: React.FC = () => {
                   min="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData(prev => ({ ...prev, quantity: Number(e.target.value) }))}
-                  className="w-full px-7 py-6 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
+                  className="w-full px-7 py-3 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
                 />
               </div>
               <div>
@@ -264,7 +276,7 @@ const ProductsManagementPage: React.FC = () => {
                   min="1"
                   value={formData.criticalThreshold}
                   onChange={(e) => setFormData(prev => ({ ...prev, criticalThreshold: Number(e.target.value) }))}
-                  className="w-full px-7 py-6 text-2xl text-gray-900 font-bold border-4 border-red-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-red-300 focus:border-red-700 transition-all bg-red-50"
+                  className="w-full px-7 py-3 text-2xl text-gray-900 font-bold border-4 border-red-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-red-300 focus:border-red-700 transition-all bg-red-50"
                 />
               </div>
               <div>
@@ -273,7 +285,7 @@ const ProductsManagementPage: React.FC = () => {
                   placeholder="مثال: زرار ميتال أبيض مقاس 1 سم"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-7 py-6 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
+                  className="w-full px-7 py-3 text-2xl text-gray-900 font-bold border-4 border-gray-300 rounded-3xl focus:outline-none focus:ring-6 focus:ring-green-300 focus:border-green-700 transition-all bg-gray-50"
                   rows={4}
                 />
               </div>
@@ -325,7 +337,7 @@ const ProductsManagementPage: React.FC = () => {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-4 md:gap-8">
-          {products.map(product => (
+          {filteredProducts.map(product => (
             <div key={product._id} className="bg-white rounded-3xl shadow-2xl p-6 border-4 border-blue-200">
               {product.imageUrl && <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover rounded-2xl mb-4" />}
               <h3 className="text-2xl font-extrabold text-gray-800 mb-2">{product.name}</h3>
