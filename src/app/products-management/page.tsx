@@ -98,18 +98,35 @@ const ProductsManagementPage: React.FC = () => {
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
+  // Start camera
+const startCamera = async () => {
+  try {
+    setIsCameraActive(true);
+    
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "environment"
       }
-    } catch (err) {
-      console.error('Camera access denied or error:', err);
-      alert('لم نتمكن من الوصول للكاميرا، من فضلك اسمح بالوصول');
+    });
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+
+
+      await new Promise((resolve) => {
+  videoRef.current!.onloadedmetadata = resolve;
+});
+      await videoRef.current.play();
+      
+      console.log("videoRef.current?.videoHeight");
+      console.log(videoRef.current?.videoWidth);
+console.log(videoRef.current?.videoHeight);
+
     }
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
@@ -300,15 +317,24 @@ const ProductsManagementPage: React.FC = () => {
                     {isCameraActive ? '🔴 إيقاف الكاميرا' : '📷 التصوير من الكاميرا'}
                   </button>
                 </div>
+      
                 {isCameraActive && (
                   <div className="bg-gray-900 rounded-2xl p-4 mb-4">
-                    <video ref={videoRef} autoPlay playsInline className="w-full rounded-xl mb-3" />
+                    <video
+  ref={videoRef}
+  autoPlay
+  playsInline
+  muted
+  className="w-full h-80 object-cover rounded-xl mb-3"
+/>
                     <canvas ref={canvasRef} className="hidden" />
                     <div className="flex gap-3">
                       <button type="button" onClick={capturePhoto} className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-4 rounded-2xl font-bold text-xl hover:from-green-600 hover:to-emerald-600 transform hover:scale-105 transition-all shadow-xl">
                         📸 التقاط الصورة
                       </button>
                     </div>
+
+                    
                   </div>
                 )}
                 {formData.imageUrl && (
