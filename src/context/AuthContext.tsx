@@ -1,13 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface User {
-  _id: string;
-  username: string;
-  role: 'owner' | 'manager';
-  token: string;
-}
+import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -24,15 +18,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    // console.log('AuthContext: token from localStorage:', token);
-    // console.log('AuthContext: userData from localStorage:', userData);
-    if (token && userData) {
-      const parsedUser = JSON.parse(userData);
-      // console.log('AuthContext: parsedUser:', parsedUser);
-      setUser(parsedUser);
+    if (!token) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error('Not authorized');
+        }
+
+        const data = await res.json();
+        const userWithToken: User = { ...data, token };
+        localStorage.setItem('user', JSON.stringify(userWithToken));
+        setUser(userWithToken);
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
