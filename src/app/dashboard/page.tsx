@@ -4,36 +4,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
-import api from '@/lib/api';
-import { io } from 'socket.io-client';
-
-interface Product {
-  _id: string;
-  name: string;
-  quantity: number;
-  criticalThreshold: number;
-  imageUrl?: string;
-  description?: string;
-  logs: any[];
-}
+import Navbar from '@/components/layout/Navbar';
+import { useProducts } from '@/hooks/useProducts';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { products, page, limit, totalPages, hasNextPage, hasPrevPage, isLoading, error, fetchProducts } = useProducts();
   const [searchQuery, setSearchQuery] = useState('');
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchQueryRef = useRef('');
-  const userRef = useRef(user);
-
-  useEffect(() => {
-    searchQueryRef.current = searchQuery;
-  }, [searchQuery]);
-
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,89 +20,22 @@ const DashboardPage: React.FC = () => {
     }
   }, [user, loading, router]);
 
-  const fetchProducts = async (query: string) => {
-    if (!userRef.current) return;
-    try {
-      const res = await api.get('/products/search', { params: { search: query } });
-      const sorted = [...res.data].sort((a, b) => {
-        const aCrit = a.quantity <= a.criticalThreshold;
-        const bCrit = b.quantity <= b.criticalThreshold;
-        if (aCrit && !bCrit) return -1;
-        if (!aCrit && bCrit) return 1;
-        return a.quantity - b.quantity;
-      });
-      setProducts(sorted);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   useEffect(() => {
     if (!user) return;
-    fetchProducts('');
-  }, [user]);
+    fetchProducts({ search: '', page: 1, limit: 10 });
+  }, [user, fetchProducts]);
 
   useEffect(() => {
     if (!user) return;
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     const query = searchQuery.trim();
     debounceTimeoutRef.current = setTimeout(() => {
-      fetchProducts(query);
+      fetchProducts({ search: query, page: 1, limit });
     }, 400);
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     };
-  }, [user, searchQuery]);
-
-  useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!);
-
-    socket.on('product:created', (product: Product) => {
-      if (searchQueryRef.current.trim()) {
-        fetchProducts(searchQueryRef.current.trim());
-        return;
-      }
-      setProducts(prev => {
-        const newList = [...prev, product];
-        return newList.sort((a, b) => {
-          const aCrit = a.quantity <= a.criticalThreshold;
-          const bCrit = b.quantity <= b.criticalThreshold;
-          if (aCrit && !bCrit) return -1;
-          if (!aCrit && bCrit) return 1;
-          return a.quantity - b.quantity;
-        });
-      });
-    });
-
-    socket.on('product:updated', (updatedProduct: Product) => {
-      if (searchQueryRef.current.trim()) {
-        fetchProducts(searchQueryRef.current.trim());
-        return;
-      }
-      setProducts(prev => {
-        const newList = prev.map(p => p._id === updatedProduct._id ? updatedProduct : p);
-        return newList.sort((a, b) => {
-          const aCrit = a.quantity <= a.criticalThreshold;
-          const bCrit = b.quantity <= b.criticalThreshold;
-          if (aCrit && !bCrit) return -1;
-          if (!aCrit && bCrit) return 1;
-          return a.quantity - b.quantity;
-        });
-      });
-    });
-
-    socket.on('product:deleted', (productId: string) => {
-      if (searchQueryRef.current.trim()) {
-        fetchProducts(searchQueryRef.current.trim());
-        return;
-      }
-      setProducts(prev => prev.filter(p => p._id !== productId));
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+  }, [user, searchQuery, limit, fetchProducts]);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-2xl font-bold text-blue-600">جاري التحميل...</div>;
@@ -135,36 +47,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <nav className="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-2xl px-4 py-3 sm:px-8 sm:py-5 flex justify-between items-center relative">
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-white drop-shadow-lg">🧾 إدارة مخزن المصنع</h1>
-        <div className="hidden sm:flex items-center gap-3 sm:gap-6">
-          {user.role === 'owner' && (
-            <button onClick={() => router.push('/products-management')} className="bg-white text-blue-600 px-4 py-2 rounded-2xl font-bold text-base sm:px-6 sm:py-3 sm:text-xl hover:bg-gray-100 transition-all">
-              🛠️ إدارة المنتجات
-            </button>
-          )}
-          <span className="text-base sm:text-2xl text-white font-semibold">{user.username} ({user.role === 'owner' ? 'مالك المصنع' : 'أمين المخزن'})</span>
-          <button onClick={logout} className="bg-red-500 text-white px-4 py-2 rounded-2xl font-bold text-base sm:px-6 sm:py-3 sm:text-xl hover:bg-red-600 transform hover:scale-105 transition-all shadow-lg">
-            تسجيل الخروج
-          </button>
-        </div>
-        <button className="sm:hidden text-white text-3xl focus:outline-none" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          ☰
-        </button>
-        {isMobileMenuOpen && (
-          <div className="sm:hidden absolute top-full left-0 w-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg py-2 z-10">
-            {user.role === 'owner' && (
-              <button onClick={() => { router.push('/products-management'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-white px-4 py-2 text-lg hover:bg-blue-700">
-                🛠️ إدارة المنتجات
-              </button>
-            )}
-            <span className="block w-full text-left text-white px-4 py-2 text-lg font-semibold">{user.username} ({user.role === 'owner' ? 'مالك المصنع' : 'أمين المخزن'})</span>
-            <button onClick={() => { logout(); setIsMobileMenuOpen(false); }} className="block w-full text-left text-white px-4 py-2 text-lg hover:bg-red-700">
-              تسجيل الخروج
-            </button>
-          </div>
-        )}
-      </nav>
+      <Navbar title="🧾 إدارة مخزن المصنع" showProductsManagement={user.role === 'owner'} />
       <main className="sm:p-8 p-3">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-extrabold text-gray-800">المنتجات</h2>
@@ -198,10 +81,36 @@ const DashboardPage: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {products.map(p => (
-                <ProductCard key={p._id} product={p} onUpdate={() => fetchProducts(searchQuery.trim())} />
+                <ProductCard key={p._id} product={p} />
               ))}
             </tbody>
           </table>
+        </div>
+
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 font-semibold">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between bg-white rounded-2xl shadow-lg p-3">
+          <button
+            disabled={!hasPrevPage || isLoading}
+            onClick={() => fetchProducts({ search: searchQuery.trim(), page: Math.max(page - 1, 1), limit })}
+            className={`px-4 py-2 rounded-xl font-bold ${!hasPrevPage || isLoading ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          >
+            السابق
+          </button>
+          <div className="text-gray-800 font-bold">
+            صفحة {page} من {totalPages}
+          </div>
+          <button
+            disabled={!hasNextPage || isLoading}
+            onClick={() => fetchProducts({ search: searchQuery.trim(), page: page + 1, limit })}
+            className={`px-4 py-2 rounded-xl font-bold ${!hasNextPage || isLoading ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          >
+            التالي
+          </button>
         </div>
       </main>
     </div>

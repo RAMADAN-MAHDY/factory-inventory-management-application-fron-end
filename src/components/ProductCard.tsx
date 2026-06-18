@@ -2,25 +2,16 @@
 
 import React, { useState } from 'react';
 import MercuryThermometer from './MercuryThermometer';
+import ImageModal from './ui/ImageModal';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-
-interface Product {
-  _id: string;
-  name: string;
-  quantity: number;
-  criticalThreshold: number;
-  imageUrl?: string;
-  description?: string;
-  logs: any[];
-}
+import { Product } from '@/types';
 
 interface ProductCardProps {
   product: Product;
-  onUpdate: () => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onUpdate }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [type, setType] = useState<'in' | 'out'>('in');
@@ -32,7 +23,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onUpdate }) => {
     try {
       await api.post(`/products/${product._id}/log`, { type, quantity: qty, notes });
       setIsAdding(false);
-      onUpdate();
     } catch (err) {
       console.error(err);
     }
@@ -97,22 +87,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onUpdate }) => {
         </td>
       </tr>
 
-      {showImageModal && product.imageUrl && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowImageModal(false)}
-        >
-          <div className="relative bg-white p-2 rounded-lg max-w-full max-h-full overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold"
-              onClick={() => setShowImageModal(false)}
-            >
-              ✕
-            </button>
-            <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-[80vh] object-contain" />
-          </div>
-        </div>
-      )}
+      <ImageModal
+        isOpen={showImageModal && !!product.imageUrl}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={product.imageUrl || ''}
+        alt={product.name}
+      />
     </>
   );
 };
